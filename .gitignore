@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.eggs/
+*.so
+
+# Environment
+.env
+backend/.env
+!backend/.env.example
+frontend/.env.local
+!frontend/.env.local.example
+
+# AI model weights
+ai-models/weights/*.pt
+ai-models/weights/*.pth
+ai-models/weights/*.onnx
+ai-models/weights/*.bin
+
+# Uploads / outputs
+uploads/
+outputs/
+temp/
+*.dcm.anon
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.turbo/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+*.xml
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

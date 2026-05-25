@@ -1,0 +1,217 @@
+version: "3.9"
+
+# AutoRadixAI — Full-stack Medical AI Platform
+# Run: docker compose up --build
+
+services:
+
+  # ============================================================
+  # PostgreSQL
+  # ============================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: autoradix-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: autoradix
+      POSTGRES_PASSWORD: autoradix
+      POSTGRES_DB: autoradixai
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autoradix -d autoradixai"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # Redis
+  # ============================================================
+  redis:
+    image: redis:7-alpine
+    container_name: autoradix-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # Backend API
+  # ============================================================
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: autoradix-backend
+    restart: unless-stopped
+    env_file:
+      - ../backend/.env.example
+    environment:
+      DATABASE_URL: postgresql+asyncpg://autoradix:autoradix@postgres:5432/autoradixai
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      ENVIRONMENT: development
+      DEBUG: "true"
+      GPU_ENABLED: "false"
+    volumes:
+      - ../backend/app:/app/app
+      - uploads_data:/app/uploads
+      - outputs_data:/app/outputs
+      - models_data:/app/ai-models
+      - logs_data:/app/logs
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"]
+      interval: 30s
+      timeout: 10s
+      start_period: 15s
+      retries: 3
+
+  # ============================================================
+  # Celery Worker — inference queue
+  # ============================================================
+  celery-inference:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: autoradix-celery-inference
+    restart: unless-stopped
+    command: celery -A app.workers.celery_app worker -Q inference -c 2 --loglevel=info
+    env_file:
+      - ../backend/.env.example
+    environment:
+      DATABASE_URL: postgresql+asyncpg://autoradix:autoradix@postgres:5432/autoradixai
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      GPU_ENABLED: "false"
+    volumes:
+      - uploads_data:/app/uploads
+      - outputs_data:/app/outputs
+      - models_data:/app/ai-models
+    depends_on:
+      - redis
+      - postgres
+
+  # ============================================================
+  # Celery Worker — processing queue
+  # ============================================================
+  celery-processing:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: autoradix-celery-processing
+    restart: unless-stopped
+    command: celery -A app.workers.celery_app worker -Q processing,reporting -c 4 --loglevel=info
+    env_file:
+      - ../backend/.env.example
+    environment:
+      DATABASE_URL: postgresql+asyncpg://autoradix:autoradix@postgres:5432/autoradixai
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    volumes:
+      - uploads_data:/app/uploads
+      - outputs_data:/app/outputs
+    depends_on:
+      - redis
+      - postgres
+
+  # ============================================================
+  # Celery Flower — monitoring UI
+  # ============================================================
+  flower:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: autoradix-flower
+    restart: unless-stopped
+    command: celery -A app.workers.celery_app flower --port=5555
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/1
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+
+  # ============================================================
+  # Frontend — Next.js
+  # ============================================================
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: autoradix-frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+  # ============================================================
+  # Orthanc PACS (optional)
+  # ============================================================
+  orthanc:
+    image: jodogne/orthanc-plugins:latest
+    container_name: autoradix-orthanc
+    restart: unless-stopped
+    ports:
+      - "8042:8042"
+      - "4242:4242"
+    volumes:
+      - orthanc_data:/var/lib/orthanc/db
+      - ./orthanc/orthanc.json:/etc/orthanc/orthanc.json:ro
+    profiles:
+      - pacs
+
+  # ============================================================
+  # MinIO — S3-compatible object storage (optional)
+  # ============================================================
+  minio:
+    image: minio/minio:latest
+    container_name: autoradix-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    profiles:
+      - storage
+
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads_data:
+  outputs_data:
+  models_data:
+  logs_data:
+  orthanc_data:
+  minio_data:
+
+networks:
+  default:
+    name: autoradixai-network

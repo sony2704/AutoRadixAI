@@ -1,0 +1,66 @@
+"""
+AutoRadixAI Backend — Python dependencies
+"""
+# Core framework
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+pydantic==2.9.2
+pydantic-settings==2.6.1
+
+# Database
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.30.0
+alembic==1.14.0
+
+# Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.18
+
+# Redis / Celery
+celery[redis]==5.4.0
+redis==5.2.1
+
+# Medical imaging
+pydicom==2.4.4
+pynetdicom==2.1.1
+highdicom==0.24.0
+dicomweb-client==0.59.1
+
+# AI/ML
+torch==2.5.1
+torchvision==0.20.1
+monai==1.4.0
+numpy==1.26.4
+scipy==1.14.1
+scikit-image==0.24.0
+opencv-python-headless==4.10.0.84
+Pillow==11.0.0
+
+# Feature extraction
+pyradiomics==3.1.0
+
+# Report generation
+weasyprint==62.3
+jinja2==3.1.4
+
+# HTTP client (DICOMWeb / FHIR)
+httpx==0.28.0
+aiohttp==3.11.8
+
+# Storage
+boto3==1.35.74
+
+# Logging
+structlog==24.4.0
+
+# Utilities
+python-dotenv==1.0.1
+tenacity==9.0.0
+
+# Testing
+pytest==8.3.3
+pytest-asyncio==0.24.0
+pytest-cov==6.0.0
+httpx==0.28.0
+factory-boy==3.3.1
