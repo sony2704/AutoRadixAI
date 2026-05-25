@@ -29,6 +29,8 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 # Copy application code
 COPY app/ ./app/
 COPY start.sh ./start.sh
+# Strip Windows CRLF line endings in case of Windows dev environment
+RUN sed -i 's/\r//' /app/start.sh
 
 # Create runtime directories
 RUN mkdir -p uploads outputs/reports outputs/heatmaps outputs/anonymized logs \
