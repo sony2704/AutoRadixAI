@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: "standalone",          // required for Docker node server.js
   reactStrictMode: true,
   experimental: {
     serverComponentsExternalPackages: [],
@@ -9,18 +10,9 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "http",
-        hostname: "localhost",
-        port: "8000",
+        hostname: "**",           // allow any local IP on the network
       },
     ],
-  },
-  async rewrites() {
-    return [
-      {
-        source: "/api/v1/:path*",
-        destination: `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/v1/:path*`,
-      },
-    ];
   },
 };
 
